@@ -2,9 +2,9 @@
   "name": "tunnel-server",
   "private": true,
   "dependencies": {
-    "localtunnel-server": "^3.0.0"
+    "localtunnel": "^2.0.2"
   },
   "scripts": {
-    "start": "lt --port $PORT"
+    "start": "npx localtunnel-server --port $PORT"
   }
 }
