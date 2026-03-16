@@ -1,6 +1,8 @@
 {
   "name": "localtunnel-server",
+  "version": "0.0.8",
   "private": true,
+  "type": "module",
   "scripts": {
     "start": "node bin/server --port $PORT"
   },
@@ -16,5 +18,8 @@
     "pump": "3.0.0",
     "tldjs": "2.3.1",
     "ws": "5.1.1"
+  },
+  "engines": {
+    "node": "22.x"
   }
 }
