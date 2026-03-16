@@ -1,13 +1,10 @@
-// server.js
-const localtunnel = require('localtunnel');
+const { startServer } = require('localtunnel-server');
 
-(async () => {
-  const port = process.env.PORT || 3000; // Render sets this automatically
-  const tunnel = await localtunnel({ port });
+const port = process.env.PORT || 3000;
 
-  console.log('LocalTunnel server running at URL:', tunnel.url);
-
-  tunnel.on('close', () => {
-    console.log('Tunnel closed');
-  });
-})();
+startServer({
+  port,
+  host: '0.0.0.0',
+}).then(() => {
+  console.log(`LocalTunnel server running on port ${port}`);
+});
