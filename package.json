@@ -2,7 +2,7 @@
   "name": "lt-server",
   "private": true,
   "dependencies": {
-    "localtunnel": "^2.0.2"
+    "localtunnel-server": "^1.0.0"
   },
   "scripts": {
     "start": "node server.js"
