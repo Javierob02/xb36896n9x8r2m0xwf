@@ -1,77 +1,72 @@
-import log from 'book';
-import Koa from 'koa';
-import tldjs from 'tldjs';
-import Debug from 'debug';
-import http from 'http';
-import { hri } from 'human-readable-ids';
-import Router from 'koa-router';
+import express from "express";
+import http from "http";
+import { WebSocketServer } from "ws";
 
-import ClientManager from './lib/ClientManager.js';
+const app = express();
+const server = http.createServer(app);
+const wss = new WebSocketServer({ server });
 
-const debug = Debug('localtunnel:server');
+let client = null;
+const pendingRequests = new Map();
 
-export default function(opt = {}) {
+// Accept raw body (JSON, text, etc.)
+app.use(express.raw({ type: "*/*" }));
 
-    const validHosts = (opt.domain) ? [opt.domain] : undefined;
-    const myTldjs = tldjs.fromUserSettings({ validHosts });
+wss.on("connection", (ws) => {
+  console.log("✅ Tunnel client connected");
+  client = ws;
 
-    function GetClientIdFromHostname(hostname) {
-        return myTldjs.getSubdomain(hostname);
+  ws.on("message", (message) => {
+    const data = JSON.parse(message);
+
+    const pending = pendingRequests.get(data.requestId);
+    if (!pending) return;
+
+    const { res } = pending;
+
+    res.status(data.status);
+
+    for (const [key, value] of Object.entries(data.headers || {})) {
+      try {
+        res.setHeader(key, value);
+      } catch {}
     }
 
-    const manager = new ClientManager(opt);
+    res.send(data.body);
+    pendingRequests.delete(data.requestId);
+  });
 
-    const schema = opt.secure ? 'https' : 'http';
+  ws.on("close", () => {
+    console.log("❌ Tunnel client disconnected");
+    client = null;
+  });
+});
 
-    const app = new Koa();
-    const router = new Router();
+// Catch ALL routes
+app.all("*", (req, res) => {
+  if (!client) {
+    return res.status(503).send("No tunnel client connected");
+  }
 
-    router.get('/api/status', async (ctx) => {
-        const stats = manager.stats;
-        ctx.body = {
-            tunnels: stats.tunnels,
-            mem: process.memoryUsage(),
-        };
-    });
+  const requestId = Math.random().toString(36).slice(2);
 
-    app.use(router.routes());
-    app.use(router.allowedMethods());
+  pendingRequests.set(requestId, { res });
 
-    app.use(async (ctx, next) => {
-        const path = ctx.request.path;
+  const payload = {
+    requestId,
+    method: req.method,
+    path: req.originalUrl,
+    headers: req.headers,
+    body: req.body.toString(),
+  };
 
-        if (path !== '/') {
-            await next();
-            return;
-        }
+  client.send(JSON.stringify(payload));
+});
 
-        const isNewClientRequest = ctx.query['new'] !== undefined;
-
-        if (isNewClientRequest) {
-
-            const reqId = hri.random();
-            debug('creating new client %s', reqId);
-
-            const info = await manager.newClient(reqId);
-
-            const url = schema + '://' + info.id + '.' + ctx.request.host;
-
-            info.url = url;
-
-            ctx.body = info;
-            return;
-        }
-
-        ctx.body = 'LocalTunnel Server Running';
-    });
-
-    const server = http.createServer();
-
-    const appCallback = app.callback();
-
-    server.on('request', (req, res) => {
-
-        const hostname = req.headers.host;
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+  console.log(`🚀 Tunnel server running on port ${PORT}`);
+});        const hostname = req.headers.host;
 
         if (!hostname) {
             res.statusCode = 400;
