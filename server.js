@@ -9,7 +9,6 @@ const wss = new WebSocketServer({ server });
 let client = null;
 const pendingRequests = new Map();
 
-// Accept raw body (JSON, text, etc.)
 app.use(express.raw({ type: "*/*" }));
 
 wss.on("connection", (ws) => {
@@ -17,23 +16,28 @@ wss.on("connection", (ws) => {
   client = ws;
 
   ws.on("message", (message) => {
-    const data = JSON.parse(message);
+    try {
+      const data = JSON.parse(message);
 
-    const pending = pendingRequests.get(data.requestId);
-    if (!pending) return;
+      const pending = pendingRequests.get(data.requestId);
+      if (!pending) return;
 
-    const { res } = pending;
+      const { res } = pending;
 
-    res.status(data.status);
+      res.status(data.status);
 
-    for (const [key, value] of Object.entries(data.headers || {})) {
-      try {
-        res.setHeader(key, value);
-      } catch {}
+      for (const [key, value] of Object.entries(data.headers || {})) {
+        try {
+          res.setHeader(key, value);
+        } catch {}
+      }
+
+      res.send(data.body);
+      pendingRequests.delete(data.requestId);
+
+    } catch (err) {
+      console.error("Error handling message:", err);
     }
-
-    res.send(data.body);
-    pendingRequests.delete(data.requestId);
   });
 
   ws.on("close", () => {
@@ -42,10 +46,10 @@ wss.on("connection", (ws) => {
   });
 });
 
-// Catch ALL routes
 app.all("*", (req, res) => {
   if (!client) {
-    return res.status(503).send("No tunnel client connected");
+    res.status(503).send("No tunnel client connected");
+    return;
   }
 
   const requestId = Math.random().toString(36).slice(2);
@@ -64,59 +68,7 @@ app.all("*", (req, res) => {
 });
 
 const PORT = process.env.PORT || 3000;
+
 server.listen(PORT, () => {
   console.log(`🚀 Tunnel server running on port ${PORT}`);
-});        const hostname = req.headers.host;
-
-        if (!hostname) {
-            res.statusCode = 400;
-            res.end('Host header required');
-            return;
-        }
-
-        const clientId = GetClientIdFromHostname(hostname);
-
-        if (!clientId) {
-            appCallback(req, res);
-            return;
-        }
-
-        const client = manager.getClient(clientId);
-
-        if (!client) {
-            res.statusCode = 404;
-            res.end('Tunnel not found');
-            return;
-        }
-
-        client.handleRequest(req, res);
-    });
-
-    server.on('upgrade', (req, socket) => {
-
-        const hostname = req.headers.host;
-
-        if (!hostname) {
-            socket.destroy();
-            return;
-        }
-
-        const clientId = GetClientIdFromHostname(hostname);
-
-        if (!clientId) {
-            socket.destroy();
-            return;
-        }
-
-        const client = manager.getClient(clientId);
-
-        if (!client) {
-            socket.destroy();
-            return;
-        }
-
-        client.handleUpgrade(req, socket);
-    });
-
-    return server;
-}
+});
