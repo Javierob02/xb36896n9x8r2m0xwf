@@ -12,7 +12,10 @@ const wss = new WebSocketServer({
 let client = null;
 const pendingRequests = new Map();
 
-app.use(express.raw({ type: "*/*" }));
+app.use(express.raw({ 
+  type: "*/*",
+  limit: "5mb"
+}));
 
 wss.on("connection", (ws) => {
   console.log("✅ Tunnel client connected");
