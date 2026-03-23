@@ -4,7 +4,10 @@ import { WebSocketServer } from "ws";
 
 const app = express();
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
+const wss = new WebSocketServer({ 
+  server,
+  maxPayload: 10 * 1024 * 1024 // 10 MB
+});
 
 let client = null;
 const pendingRequests = new Map();
